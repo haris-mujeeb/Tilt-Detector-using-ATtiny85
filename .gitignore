@@ -1,0 +1,49 @@
+# Microchip Studio specific files
+*.cproj
+*.cproject
+*.project
+*.nbproject/
+*.xcproj
+*.xcworkspace
+*.d
+*.o
+*.a
+*.elf
+*.hex
+*.lst
+*.map
+*.bak
+*.swp
+*.tmp
+*.user
+*.log
+
+# Build directories
+/build/
+Debug/
+Release/
+dist/
+bin/
+obj/
+*.dSYM/
+
+# User-specific files
+*.userprefs
+*.settings
+
+# Other files
+*.s
+*.asm
+*.pdb
+*.idb
+*.tcl
+*.xml
+*.json
+*.zip
+*.tar.gz
+*.tgz
+*.tgz
+*.tar
+*.gz
+*.7z
+*.rar
