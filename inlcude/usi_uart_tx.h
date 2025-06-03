@@ -1,12 +1,12 @@
 #ifndef USI_UART_TX_H
 #define USI_UART_TX_H
 
+#define F_CPU 8000000UL
 #include <stdint.h>
 #include <avr/io.h>
 
 // === Configuration ===
 #define USI_UART_BAUD        9600
-#define F_CPU                8000000UL
 #define UART_BIT_CYCLES      (F_CPU / USI_UART_BAUD)
 
 // === TX pin configuration ===

@@ -1,10 +1,9 @@
 #ifndef I2C_PRIMARY_H
 #define I2C_PRIMARY_H
 
+#define F_CPU 8000000UL
 #include <avr/io.h>
 #include <util/delay.h>
-
-#define F_CPU 8000000UL
 
 // I2C Pins
 #define I2C_SDA_PIN         PB0

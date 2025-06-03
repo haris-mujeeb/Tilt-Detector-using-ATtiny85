@@ -2,115 +2,105 @@
  * ATtiny85_Blink_LED.c
  *
  * Created: 03.06.2025 12:17:40
- * Author : harri
- */ 
+ * Author : Muhammad Haris Mujeeb
+ */
+
 #define F_CPU 8000000UL
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <util/delay.h>
 #include <stdlib.h>
+#include <math.h>
+
 #include "mpu6050.h"
 #include "i2c_primary.h"
 #include "usi_uart_tx.h"
 
-#define DEG_PER_RAD 57.2958
+// === Constants ===
+#define DEG_PER_RAD     57.2958
+#define MAX_INTERVAL    500    // ms at 0°
+#define MIN_INTERVAL    10     // ms at MAX_ANGLE
+#define MAX_ANGLE       25.0    // Angle for minimum blink rate
+#define LED_PIN         PB4
 
-// State variables for LED blinking
-volatile uint32_t lastToggleTime = 0;
-volatile uint32_t blinkInterval = 0;
-volatile uint8_t ledState = 0; // 0 = off, 1 = on
+// === State variables ===
+volatile uint32_t blinkInterval = MAX_INTERVAL;
+volatile uint8_t ledState = 0;
 
-// Blink interval parameters
-#define MAX_INTERVAL 1000 // 1000 ms at 0 degrees
-#define MIN_INTERVAL 100  // 100 ms at max angle
-#define MAX_ANGLE 90.0    // Maximum angle for min interval
+// === Function Prototypes ===
+void timer_init(void);
+void send_angle(float angle);
 
-void timer_init() {
-	// Set up Timer0 for CTC mode
-	TCCR0A = (1 << WGM01); // CTC mode
-	TCCR0B = (1 << CS01) | (1 << CS00); // Prescaler 64
-	OCR0A = (F_CPU / 64 / 1000) - 1; // Set compare value for 1 ms
-	TIMSK |= (1 << OCIE0A); // Enable Timer0 compare interrupt
+// === Timer Setup ===
+void timer_init(void) {
+    TCCR0A = (1 << WGM01);                 // CTC mode
+    TCCR0B = (1 << CS01) | (1 << CS00);    // Prescaler 64
+    OCR0A = (F_CPU / 64 / 1000) - 1;       // 1 ms tick
+    TIMSK |= (1 << OCIE0A);                // Enable compare interrupt
 }
 
+// === UART Send Float as String ===
+void send_angle(float angle) {
+    char buffer[16];
+    dtostrf(angle, 6, 2, buffer);
+    for (char *p = buffer; *p; p++) {
+        usi_uart_transmit(*p);
+    }
+    usi_uart_transmit('\r');
+    usi_uart_transmit('\n');
+}
 
-int main(void)
-{
-    DDRB |= (1 << PB4); // set PB4 as output pin
-    
-	// Initialize I2C and MPU6050
-	i2c_init();       // Your bit-banged I2C init
-	MPU6050_init();
+// === Main ===
+int main(void) {
+    // Setup LED pin
+    DDRB |= (1 << LED_PIN);
+
+    // Initialize peripherals
+    i2c_init();
+    MPU6050_init();
     usi_uart_tx_init();
-	
-	int16_t ax, ay, az;
-    float new_angle;
-	char buffer[16];
-	
-	float alpha = 0.1; // Smoothing factor
-	float filtered_angle = 0.0; // Initialize filtered angle
-	
-	// Initialize timer
-	timer_init();
-	sei(); // Enable global interrupts
-	
-	while (1) {
-		MPU6050_read_accel(&ax, &ay, &az);
-		
-		// Convert raw acceleration to tilt angle in degrees (pitch-like estimation)
-		new_angle = atan2((float)ax, (float)az) * DEG_PER_RAD;
-		
-		filtered_angle = alpha * new_angle + (1 - alpha) * filtered_angle;
-		
-		dtostrf(filtered_angle, 6, 2, buffer);
-		
-		// Transmit string over UART
-		for (char *p = buffer; *p != '\0'; p++) {
-			usi_uart_transmit(*p);
-		}
-		usi_uart_transmit('\r');
-		usi_uart_transmit('\n');
-		
-		//// blink fast if tilted more than 30 degrees, else slow
-		//if (fabs(angle) > 10.0) {
-			//portb |= (1 << pb4); // led on
-			//_delay_ms(1000);      // fast blink
-			//portb &= ~(1 << pb4); // led off
-			//_delay_ms(1000);
-		//} else {
-			//portb |= (1 << pb4); // led on
-			//_delay_ms(500);      // slow blink
-			//portb &= ~(1 << pb4); // led off
-			//_delay_ms(500);
-		//}
+    timer_init();
+    sei();
 
-        // Calculate blink interval based on angle
-        if (fabs(filtered_angle) <= MAX_ANGLE) {
-	        blinkInterval = MAX_INTERVAL - (fabs(filtered_angle) / MAX_ANGLE) * (MAX_INTERVAL - MIN_INTERVAL);
-	    } else {
-	        blinkInterval = MIN_INTERVAL; // Cap at minimum interval if angle exceeds max
-        }
-		
-		_delay_ms(30);
+    int16_t ax, ay, az;
+    float angle_raw = 0, angle_filtered = 0;
+    const float alpha = 0.1f;
+
+    while (1) {
+        // Read accelerometer
+        MPU6050_read_accel(&ax, &ay, &az);
+
+        // Compute tilt angle
+        angle_raw = atan2((float)ax, (float)az) * DEG_PER_RAD;
+        angle_filtered = alpha * angle_raw + (1 - alpha) * angle_filtered;
+
+        // Transmit over UART
+        send_angle(angle_filtered);
+
+        // Adjust blink interval based on angle
+        float abs_angle = fabs(angle_filtered);
+        blinkInterval = (abs_angle <= MAX_ANGLE)
+            ? MAX_INTERVAL - (abs_angle / MAX_ANGLE) * (MAX_INTERVAL - MIN_INTERVAL)
+            : MIN_INTERVAL;
+
+        _delay_ms(30); // Small delay to reduce I2C/UART load
     }
 }
 
-
-// Timer interrupt service routine
+// === Timer Interrupt ===
 ISR(TIMER0_COMPA_vect) {
-	static uint32_t toggleTime = 0;
+    static uint32_t millisCounter = 0;
 
-	toggleTime++; // Increment the timer count
+    if (++millisCounter >= blinkInterval / 2) {
+        millisCounter = 0;
 
-	// Check if it's time to toggle the LED
-	if (toggleTime >= blinkInterval / 2) {
-		toggleTime = 0; // Reset the timer count
-		if (ledState) {
-			PORTB &= ~(1 << PB4); // Turn LED off
-			ledState = 0;
-			} else {
-			PORTB |= (1 << PB4); // Turn LED on
-			ledState = 1;
-		}
-	}
+        // Toggle LED
+        if (ledState) {
+            PORTB &= ~(1 << LED_PIN);  // OFF
+            ledState = 0;
+        } else {
+            PORTB |= (1 << LED_PIN);   // ON
+            ledState = 1;
+        }
+    }
 }
