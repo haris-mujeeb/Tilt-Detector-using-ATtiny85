@@ -40,19 +40,40 @@ https://github.com/user-attachments/assets/89a8bb53-574f-4a65-8edf-30fec9289218
 
 ### Clone this repo:
 ```bash
-git clone https://github.com/yourusername/attiny85-tilt-uart-led.git
+git clone
+https://github.com/haris-mujeeb/Tilt-Detector-using-ATtiny85
 cd attiny85-tilt-uart-led
 ````
 
-### Flash to your ATtiny85:
+### Flashing the Firmware
+You can flash the code to your ATtiny85 using your preferred method. Below are two common approaches:
 
-```bash
-make flash
-```
+Option 1: Using avrdude + USBasp (or similar)
 
-Then connect a serial adapter to **PB3** (TX) at **9600 baud** and open a serial monitor.
+avr-gcc -mmcu=attiny85 -Os -o main.elf main.c
+avr-objcopy -O ihex main.elf main.hex
+avrdude -c usbasp -p attiny85 -U flash:w:main.hex
+
+Option 2: Using Microchip Studio
+
+1. Open the project in Microchip Studio
+
+2. Connect your programmer (e.g., USBasp)
+
+3. Build → Flash to target
+
+4. Set the fuse bits if not already set:
+
+Clock: Internal 8 MHz (Disable CKDIV8 if using full speed)
+
+> 💡 Make sure to power your ATtiny85 during programming.
+
+
+
+---
 
 #### 📈 Example Output (Serial Monitor)
+Then connect a serial adapter to **PB3** (TX) at **9600 baud** and open a serial monitor.
 
 ```
 -3.42  
