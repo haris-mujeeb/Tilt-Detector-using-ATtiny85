@@ -9,6 +9,11 @@
 #define I2C_SDA_PIN         PB0
 #define I2C_SCL_PIN         PB2
 
+// Define PORT, PIN, DDR registers for I2C port
+#define I2C_PORT            PORTB
+#define I2C_PIN             PINB
+#define I2C_DDR             DDRB
+
 // Timing Delays (µs)
 #define I2C_DELAY_LONG      5   // ~4.7 µs
 #define I2C_DELAY_SHORT     4   // ~4.0 µs
